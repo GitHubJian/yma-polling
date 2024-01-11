@@ -40,7 +40,7 @@ function createPolling(options) {
             blocked = false;
 
             until({
-                code: 1,
+                pcode: 1,
                 msg: 'Polling 被手动终止',
             });
         } else {
@@ -50,10 +50,11 @@ function createPolling(options) {
                 clearTimeout(timer);
                 timer = null;
 
-                if (count >= limit) {
+                if (limit > 0 && count >= limit) {
                     until({
-                        code: 2,
+                        pcode: 2,
                         msg: 'Polling 轮询超过 ' + limit + ' 次',
+                        error: {}
                     });
                 } else {
                     if (isPromise(action)) {
@@ -61,7 +62,7 @@ function createPolling(options) {
                             res => {
                                 if (!!when(res)) {
                                     until({
-                                        code: 0,
+                                        pcode: 0,
                                         msg: 'Polling 执行成功',
                                         result: res,
                                     });
@@ -71,7 +72,7 @@ function createPolling(options) {
                             },
                             err => {
                                 until({
-                                    code: 3,
+                                    pcode: 3,
                                     msg: 'Polling 执行 Action 函数失败',
                                     error: err,
                                 });
@@ -81,14 +82,14 @@ function createPolling(options) {
                         const cb = function (err, res) {
                             if (err) {
                                 until({
-                                    code: 3,
+                                    pcode: 3,
                                     msg: 'Polling 执行 Action 函数失败',
                                     error: err,
                                 });
                             } else {
                                 if (!!when(res)) {
                                     until({
-                                        code: 0,
+                                        pcode: 0,
                                         msg: 'Polling 执行成功',
                                         result: res,
                                     });
@@ -125,7 +126,7 @@ function createPify(options) {
         p.start();
     }).then(
         res => {
-            if (code === 0) {
+            if (pcode === 0) {
                 return Promise.resolve(res);
             } else {
                 return Promise.reject(res);
@@ -133,7 +134,7 @@ function createPify(options) {
         },
         e => {
             return Promise.reject({
-                code: 4,
+                pcode: 4,
                 msg: '未知的错误',
                 error: e,
             });
