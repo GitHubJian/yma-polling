@@ -1,0 +1,18 @@
+{
+    "name": "yma-polling",
+    "version": "1.0.0",
+    "description": "HTTP 轮训机",
+    "main": "./src/index.js",
+    "scripts": {},
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/GitHubJian/yma-polling.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/GitHubJian/yma-polling/issues"
+    },
+    "homepage": "https://github.com/GitHubJian/yma-polling#readme"
+}
