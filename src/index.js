@@ -23,9 +23,10 @@ function createPolling(options) {
         when, // 轮询中止函数，返回 action 的结果
         until, // 轮询终止函数，返回 action 的最终结果
         interval, // 轮询间隔
-        limit, // 轮询次数
+        limit, // 轮询次数，0 一直轮训
     } = options;
 
+    limit = limit || 0;
     actionContext = actionContext || null;
     // 保证 params 是一个数组
     params = Array.isArray(params) ? params : [params];

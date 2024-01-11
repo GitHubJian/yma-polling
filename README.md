@@ -20,7 +20,7 @@ const polling = createPolling({
     when, // 轮询中止函数，返回 action 的结果
     until, // 轮询终止函数，返回 action 的最终结果
     interval, // 轮询间隔
-    limit, // 轮询次数
+    limit, // 轮询次数，0 一直轮训
 });
 
 polling.start(); // 启动轮询
