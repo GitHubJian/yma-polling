@@ -15,7 +15,7 @@ function isPromise(v) {
     );
 }
 
-function createPolling(options) {
+function create(options) {
     let {
         action, // 待轮询的函数
         actionContext, // 轮询函数的上下文
@@ -54,7 +54,7 @@ function createPolling(options) {
                     until({
                         pcode: 2,
                         msg: 'Polling 轮询超过 ' + limit + ' 次',
-                        error: {}
+                        error: {},
                     });
                 } else {
                     if (isPromise(action)) {
@@ -116,7 +116,7 @@ function createPolling(options) {
     };
 }
 
-function createPify(options) {
+function pify(options) {
     return new Promise(function (resolve) {
         const p = polling({
             ...options,
@@ -142,5 +142,6 @@ function createPify(options) {
     );
 }
 
-module.exports = createPolling;
-exports.createPify = createPify;
+create.pify = pify;
+
+module.exports = create;
