@@ -1,6 +1,6 @@
 {
     "name": "yma-polling",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "HTTP 轮训机",
     "main": "./src/index.js",
     "scripts": {},
