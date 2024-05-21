@@ -118,7 +118,7 @@ function create(options) {
 
 function pify(options) {
     return new Promise(function (resolve) {
-        const p = polling({
+        const p = create({
             ...options,
             until: resolve,
         });
@@ -126,7 +126,7 @@ function pify(options) {
         p.start();
     }).then(
         res => {
-            if (pcode === 0) {
+            if (res.pcode === 0) {
                 return Promise.resolve(res);
             } else {
                 return Promise.reject(res);
