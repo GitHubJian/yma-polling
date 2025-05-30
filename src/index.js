@@ -17,131 +17,186 @@ function isPromise(v) {
 
 function create(options) {
     let {
-        action, // 待轮询的函数
-        actionContext, // 轮询函数的上下文
+        fn, // 待轮询的函数
+        context, // 轮询函数的上下文
         params, // 轮询函数的参数数组
-        when, // 轮询中止函数，返回 action 的结果
-        until, // 轮询终止函数，返回 action 的最终结果
-        interval, // 轮询间隔
-        limit, // 轮询次数，0 一直轮训
+        isBreakup, // 轮询中止函数，返回 action 的结果
+        successCallback,
+        errorCallback,
+        completeCallback, // 轮询终止函数，返回 action 的最终结果
+        interval, // 轮询间隔，0 不设置轮询间隔时长
+        maxTries, // 轮询次数，0 一直轮训
+        timeout, // 超时时长，0 不超时
+        withPromise, // 使用自带 promise 功能
+        immediate, // 是否立即开始 start
+        ECtor,
     } = options;
 
-    limit = limit || 0;
-    actionContext = actionContext || null;
-    // 保证 params 是一个数组
+    context = context || null;
     params = Array.isArray(params) ? params : [params];
+    successCallback = successCallback || function () {};
+    errorCallback = errorCallback || function () {};
+    completeCallback = completeCallback || function () {};
+    interval = interval || 0;
+    maxTries = maxTries || 0;
+    timeout = timeout || 0;
+    withPromise = withPromise || false;
+    immediate = !(immediate === false);
+    ECtor =
+        ECtor ||
+        function (code, message, error) {
+            this.code = code;
+            this.messsage = message;
+            this.error = error;
+        };
 
     let timer;
     let count = 0;
     let blocked = false;
+    let isRun = false;
 
-    function start() {
-        if (blocked) {
-            blocked = false;
+    const starttime = Date.now();
+    const endtime = starttime + timeout;
 
-            until({
-                pcode: 1,
-                msg: 'Polling 被手动终止',
-            });
-        } else {
-            timer = setTimeout(function () {
-                count++;
-
-                clearTimeout(timer);
-                timer = null;
-
-                if (limit > 0 && count >= limit) {
-                    until({
-                        pcode: 2,
-                        msg: 'Polling 轮询超过 ' + limit + ' 次',
-                        error: {},
-                    });
-                } else {
-                    if (isPromise(action)) {
-                        action.apply(actionContext, params).then(
-                            res => {
-                                if (!!when(res)) {
-                                    until({
-                                        pcode: 0,
-                                        msg: 'Polling 执行成功',
-                                        result: res,
-                                    });
-                                } else {
-                                    start();
-                                }
-                            },
-                            err => {
-                                until({
-                                    pcode: 3,
-                                    msg: 'Polling 执行 Action 函数失败',
-                                    error: err,
-                                });
-                            }
-                        );
-                    } else {
-                        const cb = function (err, res) {
-                            if (err) {
-                                until({
-                                    pcode: 3,
-                                    msg: 'Polling 执行 Action 函数失败',
-                                    error: err,
-                                });
-                            } else {
-                                if (!!when(res)) {
-                                    until({
-                                        pcode: 0,
-                                        msg: 'Polling 执行成功',
-                                        result: res,
-                                    });
-                                } else {
-                                    start();
-                                }
-                            }
-                        };
-
-                        action.apply(actionContext, [...params, cb]);
-                    }
-                }
-            }, interval);
+    function run() {
+        if (isRun) {
+            return;
         }
+        isRun = true;
+
+        function start() {
+            if (blocked) {
+                blocked = false;
+
+                const e = new ECtor(1, 'Polling 被手动终止');
+                errorCallback(e);
+                completeCallback(e);
+            } else {
+                timer = setTimeout(function () {
+                    const now = Date.now();
+
+                    if (timeout > 0 && now > endtime) {
+                        // 超时了
+                        const e = new ECtor(
+                            4,
+                            'Polling 轮询超过 ' + timeout + ' 时长'
+                        );
+                        errorCallback(e);
+                        completeCallback(e);
+                    } else {
+                        count++;
+
+                        clearTimeout(timer);
+                        timer = null;
+
+                        if (maxTries > 0 && count >= maxTries) {
+                            const e = new ECtor(
+                                2,
+                                'Polling 轮询超过 ' + maxTries + ' 次'
+                            );
+                            errorCallback(e);
+                            completeCallback(e);
+                        } else {
+                            if (isPromise(fn)) {
+                                fn.apply(context, params).then(
+                                    res => {
+                                        if (!!isBreakup(res)) {
+                                            successCallback(res);
+                                            completeCallback(res);
+                                        } else {
+                                            start();
+                                        }
+                                    },
+                                    err => {
+                                        const e = new ECtor(
+                                            3,
+                                            'Polling 执行 Action 函数失败',
+                                            err
+                                        );
+                                        errorCallback(e);
+                                        completeCallback(e);
+                                    }
+                                );
+                            } else {
+                                const cb = function (err, res) {
+                                    if (err) {
+                                        const e = new ECtor(
+                                            3,
+                                            'Polling 执行 Action 函数失败',
+                                            err
+                                        );
+                                        errorCallback(e);
+                                        completeCallback(e);
+                                    } else {
+                                        if (!!isBreakup(res)) {
+                                            successCallback(res);
+                                            completeCallback(res);
+                                        } else {
+                                            start();
+                                        }
+                                    }
+                                };
+
+                                fn.apply(context, [...params, cb]);
+                            }
+                        }
+                    }
+                }, interval);
+            }
+        }
+
+        start();
     }
 
     function abort() {
         blocked = true;
     }
 
-    return {
-        start,
-        abort,
-    };
-}
+    if (withPromise) {
+        console.log('[YMA Polling] withPromise 为实验功能');
 
-function pify(options) {
-    return new Promise(function (resolve) {
-        const p = create({
-            ...options,
-            until: resolve,
+        const p = new Promise((resolve, reject) => {
+            successCallback = resolve;
+            errorCallback = reject;
         });
 
-        p.start();
-    }).then(
-        res => {
-            if (res.pcode === 0) {
-                return Promise.resolve(res);
-            } else {
-                return Promise.reject(res);
+        const next = {};
+        next.then = function (resolve, reject) {
+            if (immediate) {
+                run();
             }
-        },
-        e => {
-            return Promise.reject({
-                pcode: 4,
-                msg: '未知的错误',
-                error: e,
-            });
+
+            return p.then(resolve, reject);
+        };
+
+        next.run = function () {
+            setTimeout(() => {
+                run();
+            }, 0);
+        };
+        next.abort = abort;
+
+        return next;
+    } else {
+        if (immediate) {
+            run();
         }
-    );
+
+        return {
+            run: function () {
+                setTimeout(() => {
+                    run();
+                }, 0);
+            },
+            abort,
+        };
+    }
 }
 
-create.pify = pify;
+function promiseify(fn) {
+    fn.then = function () {};
+}
+
+create.promiseify = promiseify;
 
 module.exports = create;
